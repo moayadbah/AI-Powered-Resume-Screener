@@ -1,0 +1,628 @@
+openapi: 3.0.3
+info:
+  title: Resume Screener API
+  description: |
+    Public API for the recruiter dashboard. Mirrors `docs/03-API-CONTRACT.md`;
+    if the two disagree, the Markdown doc wins and this file needs fixing.
+
+    All routes require a Bearer JWT except register, login, and the health probe.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local
+
+tags:
+  - name: auth
+    description: Recruiter registration, login, and the current-user lookup.
+  - name: jobs
+    description: Job postings and the screening trigger.
+  - name: resumes
+    description: PDF upload and text extraction.
+  - name: candidates
+    description: Ranked results and candidate detail.
+  - name: ops
+    description: Health probe.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: Create a recruiter account
+      security: []
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Account created, token issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Exchange credentials for a token
+      security: []
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: |
+            Invalid credentials. Wrong email and wrong password return the same
+            code and message on purpose.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Current user
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: The authenticated recruiter
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/jobs:
+    post:
+      tags: [jobs]
+      summary: Create a job posting
+      operationId: createJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateJobRequest' }
+      responses:
+        '201':
+          description: |
+            Created. `requiredSkills` is normalized (lowercased, trimmed,
+            de-duplicated) so it may differ from what was sent.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [jobs]
+      summary: List the caller's jobs, newest first
+      operationId: listJobs
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Page of job summaries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobSummaryPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/jobs/{id}:
+    get:
+      tags: [jobs]
+      summary: Job detail
+      operationId: getJob
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+      responses:
+        '200':
+          description: The job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/jobs/{id}/resumes:
+    post:
+      tags: [resumes]
+      summary: Upload resumes to a job
+      description: |
+        Up to 10 PDFs per request, 5 MB each. Type is verified by `%PDF-` magic
+        bytes, not by extension.
+
+        Files that store successfully appear in `uploaded` **even if parsing
+        failed** — the record carries `parseStatus`. Only files rejected before
+        storage appear in `rejected`. A request where everything is rejected
+        still returns 201 with an empty `uploaded` array.
+      operationId: uploadResumes
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
+            encoding:
+              files:
+                contentType: application/pdf
+      responses:
+        '201':
+          description: Upload processed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413':
+          description: A file exceeded the size limit
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: Too many files in one request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/jobs/{id}/screen:
+    post:
+      tags: [jobs]
+      summary: Score every parsed resume on this job
+      description: |
+        Synchronous. Budget 1-2 s per resume with summaries enabled; clients
+        should allow at least 180 s.
+
+        Results are upserted on (jobId, resumeId), so re-screening replaces
+        rather than appends. Scoring failure fails the request; summarization
+        failure does not — it increments `summariesDegraded`.
+      operationId: screenJob
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+      responses:
+        '200':
+          description: Screening finished
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScreenResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: No scoreable resumes, or batch over the cap
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: ai-service unreachable or failed after one retry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/jobs/{id}/candidates:
+    get:
+      tags: [candidates]
+      summary: Ranked candidate list
+      description: |
+        Includes unscreened resumes with `screening: null`; those always sort
+        last regardless of `order`.
+      operationId: listCandidates
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [score, name, uploadedAt]
+            default: score
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Page of candidates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidatePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/candidates/{resumeId}:
+    get:
+      tags: [candidates]
+      summary: Candidate detail including summary prose
+      description: '`parsedText` is deliberately not returned.'
+      operationId: getCandidate
+      parameters:
+        - name: resumeId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ObjectId' }
+      responses:
+        '200':
+          description: The candidate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidateDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /actuator/health:
+    get:
+      tags: [ops]
+      summary: Liveness probe
+      description: Must return a response even when MongoDB is down.
+      security: []
+      operationId: health
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: UP }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    JobId:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    Page:
+      name: page
+      in: query
+      description: 0-based
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: Missing, malformed, or expired token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: Resource belongs to another recruiter
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    ObjectId:
+      type: string
+      pattern: '^[a-f0-9]{24}$'
+      example: 665f1a2b3c4d5e6f70819201
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, traceId]
+          properties:
+            code:
+              type: string
+              description: One of the codes in docs/03-API-CONTRACT.md. Never invent new ones.
+              enum:
+                - VALIDATION_FAILED
+                - MALFORMED_JSON
+                - UNAUTHORIZED
+                - INVALID_CREDENTIALS
+                - FORBIDDEN
+                - JOB_NOT_FOUND
+                - RESUME_NOT_FOUND
+                - EMAIL_ALREADY_REGISTERED
+                - PAYLOAD_TOO_LARGE
+                - UNSUPPORTED_FILE_TYPE
+                - TOO_MANY_FILES
+                - BATCH_TOO_LARGE
+                - NO_SCOREABLE_RESUMES
+                - INTERNAL_ERROR
+                - AI_SERVICE_UNAVAILABLE
+            message: { type: string }
+            traceId: { type: string, example: c1a9f4e2b7d34a10 }
+            details:
+              type: object
+              nullable: true
+              additionalProperties: { type: string }
+
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 8, maxLength: 128, format: password }
+        fullName: { type: string, minLength: 2, maxLength: 100 }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+
+    AuthResponse:
+      type: object
+      required: [token, expiresAt, user]
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/User' }
+
+    User:
+      type: object
+      required: [id, email, fullName, role]
+      properties:
+        id: { $ref: '#/components/schemas/ObjectId' }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        role: { type: string, enum: [RECRUITER] }
+        createdAt: { type: string, format: date-time }
+
+    CreateJobRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 120 }
+        description: { type: string, minLength: 50, maxLength: 20000 }
+        requiredSkills:
+          type: array
+          maxItems: 50
+          items: { type: string, minLength: 1, maxLength: 60 }
+        location: { type: string, maxLength: 120, nullable: true }
+
+    Job:
+      type: object
+      required: [id, title, description, requiredSkills, createdAt, updatedAt, resumeCount, screenedCount]
+      properties:
+        id: { $ref: '#/components/schemas/ObjectId' }
+        title: { type: string }
+        description: { type: string }
+        requiredSkills:
+          type: array
+          description: Normalized to lowercase, trimmed, de-duplicated.
+          items: { type: string }
+        location: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        resumeCount: { type: integer }
+        screenedCount: { type: integer }
+        unreadableCount: { type: integer, description: Resumes with parseStatus EMPTY or FAILED }
+        lastScreenedAt: { type: string, format: date-time, nullable: true }
+
+    JobSummary:
+      type: object
+      description: List projection — omits `description`.
+      required: [id, title, requiredSkills, createdAt, resumeCount, screenedCount]
+      properties:
+        id: { $ref: '#/components/schemas/ObjectId' }
+        title: { type: string }
+        location: { type: string, nullable: true }
+        requiredSkills:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        resumeCount: { type: integer }
+        screenedCount: { type: integer }
+
+    JobSummaryPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/JobSummary' }
+
+    PageMeta:
+      type: object
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+
+    ParseStatus:
+      type: string
+      enum: [PARSED, EMPTY, FAILED]
+      description: |
+        PARSED - text extracted.
+        EMPTY  - opened fine but no text (scan / image-only). Not screened.
+        FAILED - extraction threw (encrypted, corrupt). Not screened.
+
+    UploadedResume:
+      type: object
+      required: [id, candidateName, originalFilename, parseStatus, pageCount, sizeBytes, uploadedAt]
+      properties:
+        id: { $ref: '#/components/schemas/ObjectId' }
+        candidateName: { type: string }
+        originalFilename: { type: string }
+        parseStatus: { $ref: '#/components/schemas/ParseStatus' }
+        pageCount: { type: integer }
+        sizeBytes: { type: integer, format: int64 }
+        uploadedAt: { type: string, format: date-time }
+
+    RejectedFile:
+      type: object
+      required: [filename, reason]
+      properties:
+        filename: { type: string }
+        reason:
+          type: string
+          enum: [UNSUPPORTED_FILE_TYPE, PAYLOAD_TOO_LARGE]
+
+    UploadResponse:
+      type: object
+      required: [uploaded, rejected]
+      properties:
+        uploaded:
+          type: array
+          items: { $ref: '#/components/schemas/UploadedResume' }
+        rejected:
+          type: array
+          items: { $ref: '#/components/schemas/RejectedFile' }
+
+    ScreenResponse:
+      type: object
+      required: [jobId, screened, skipped, summariesDegraded, modelVersion, durationMs, screenedAt]
+      properties:
+        jobId: { $ref: '#/components/schemas/ObjectId' }
+        screened: { type: integer }
+        skipped: { type: integer, description: Resumes not in PARSED state }
+        summariesDegraded: { type: integer, description: Scored but no summary }
+        modelVersion: { type: string, example: all-MiniLM-L6-v2@c9745ed }
+        durationMs: { type: integer, format: int64 }
+        screenedAt: { type: string, format: date-time }
+
+    ScreeningSummary:
+      type: object
+      description: List projection — no prose.
+      required: [score, semanticScore, skillScore, matchedSkills, missingSkills, summaryDegraded, scoredAt]
+      properties:
+        score: { type: integer, minimum: 0, maximum: 100 }
+        semanticScore: { type: number, format: double, minimum: 0, maximum: 1 }
+        skillScore: { type: number, format: double, minimum: 0, maximum: 1 }
+        matchedSkills: { type: array, items: { type: string } }
+        missingSkills: { type: array, items: { type: string } }
+        summaryDegraded: { type: boolean }
+        scoredAt: { type: string, format: date-time }
+
+    ScreeningDetail:
+      allOf:
+        - $ref: '#/components/schemas/ScreeningSummary'
+        - type: object
+          properties:
+            summary:
+              type: string
+              nullable: true
+              maxLength: 600
+              description: Null when summarization degraded.
+            strengths:
+              type: array
+              nullable: true
+              maxItems: 3
+              items: { type: string, maxLength: 120 }
+            concerns:
+              type: array
+              nullable: true
+              maxItems: 3
+              items: { type: string, maxLength: 120 }
+            modelVersion: { type: string }
+            promptVersion: { type: string, nullable: true }
+            weights: { $ref: '#/components/schemas/Weights' }
+
+    Weights:
+      type: object
+      required: [semantic, skill]
+      properties:
+        semantic: { type: number, format: double, example: 0.7 }
+        skill: { type: number, format: double, example: 0.3 }
+
+    Candidate:
+      type: object
+      required: [resumeId, candidateName, originalFilename, parseStatus, uploadedAt, screening]
+      properties:
+        resumeId: { $ref: '#/components/schemas/ObjectId' }
+        candidateName: { type: string }
+        candidateEmail: { type: string, nullable: true }
+        originalFilename: { type: string }
+        parseStatus: { $ref: '#/components/schemas/ParseStatus' }
+        uploadedAt: { type: string, format: date-time }
+        screening:
+          type: object
+          nullable: true
+          description: Null when the resume has not been screened yet.
+          allOf:
+            - $ref: '#/components/schemas/ScreeningSummary'
+
+    CandidatePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/Candidate' }
+
+    CandidateDetail:
+      type: object
+      required: [resumeId, jobId, jobTitle, candidateName, originalFilename, parseStatus, pageCount, uploadedAt, screening]
+      properties:
+        resumeId: { $ref: '#/components/schemas/ObjectId' }
+        jobId: { $ref: '#/components/schemas/ObjectId' }
+        jobTitle: { type: string }
+        candidateName: { type: string }
+        candidateEmail: { type: string, nullable: true }
+        originalFilename: { type: string }
+        parseStatus: { $ref: '#/components/schemas/ParseStatus' }
+        pageCount: { type: integer }
+        uploadedAt: { type: string, format: date-time }
+        screening:
+          type: object
+          nullable: true
+          description: Null when the resume has not been screened yet.
+          allOf:
+            - $ref: '#/components/schemas/ScreeningDetail'
