@@ -1,0 +1,7 @@
+Sami Toubasi
+sami.toubasi@example.com
+
+Junior developer. One year of experience. Java, some Spring Boot, SQL.
+Looking for a backend role.
+
+BSc Computer Science, 2025.

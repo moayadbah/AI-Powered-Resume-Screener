@@ -1,0 +1,6 @@
+{
+  "title": "Data Analyst",
+  "description": "We are looking for a data analyst to turn our product and hiring data into decisions the team can act on. You will write SQL against our reporting warehouse, build and maintain dashboards, and work with product managers to define the metrics that matter before building the charts for them. Comfort with Python for data cleaning and ad hoc analysis is expected, along with enough statistical judgement to know when a difference is noise. Much of the job is communication: explaining what a number does and does not support to people who will make decisions from it.",
+  "requiredSkills": ["SQL", "Python", "Tableau", "Statistics"],
+  "location": "Remote"
+}

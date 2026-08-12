@@ -1,0 +1,39 @@
+Omar Khalil
+Backend Engineer
+omar.khalil@example.com | Amman, Jordan
+
+SUMMARY
+Backend engineer with four years building and operating REST APIs in Java. Most
+of my work has been on Spring Boot services backed by MongoDB, shipped as Docker
+containers. I like owning a service end to end, including the boring parts:
+error handling, timeouts, and what happens when a dependency is down.
+
+EXPERIENCE
+
+Senior Backend Engineer, Nimbus Logistics
+2023 - present
+- Own three Spring Boot services handling shipment tracking, roughly 400 requests
+  per second at peak.
+- Designed the MongoDB schema and indexes for the tracking collection after query
+  latency became the bottleneck; p99 dropped from 800ms to 60ms.
+- Built the integration layer that calls our pricing service over HTTP, including
+  retry with backoff and a circuit breaker so a slow dependency degrades instead
+  of cascading.
+- Introduced contract tests between services after a field rename broke
+  production on a Friday.
+
+Backend Engineer, Cedar Systems
+2021 - 2023
+- Built REST APIs in Java and Spring Boot for an internal HR product.
+- Implemented JWT authentication and role-based access control across eight
+  endpoints.
+- Containerised the service with Docker and wrote the Compose setup the team
+  still uses locally.
+- Wrote integration tests with Testcontainers against a real MongoDB instance.
+
+EDUCATION
+BSc Computer Science, University of Jordan, 2021
+
+TECHNICAL SKILLS
+Java, Spring Boot, MongoDB, Docker, REST API design, JUnit, Testcontainers,
+Maven, Git, Linux

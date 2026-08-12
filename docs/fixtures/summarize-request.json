@@ -1,0 +1,14 @@
+{
+  "resumeId": "strong-backend",
+  "resumeText": "Omar Khalil\nBackend Engineer\nomar.khalil@example.com | Amman, Jordan\n\nSUMMARY\nBackend engineer with four years building and operating REST APIs in Java. Most\nof my work has been on Spring Boot services backed by MongoDB, shipped as Docker\ncontainers. I like owning a service end to end, including the boring parts:\nerror handling, timeouts, and what happens when a dependency is down.\n\nEXPERIENCE\n\nSenior Backend Engineer, Nimbus Logistics\n2023 - present\n- Own three Spring Boot services handling shipment tracking, roughly 400 requests\n  per second at peak.\n- Designed the MongoDB schema and indexes for the tracking collection after query\n  latency became the bottleneck; p99 dropped from 800ms to 60ms.\n- Built the integration layer that calls our pricing service over HTTP, including\n  retry with backoff and a circuit breaker so a slow dependency degrades instead\n  of cascading.\n- Introduced contract tests between services after a field rename broke\n  production on a Friday.\n\nBackend Engineer, Cedar Systems\n2021 - 2023\n- Built REST APIs in Java and Spring Boot for an internal HR product.\n- Implemented JWT authentication and role-based access control across eight\n  endpoints.\n- Containerised the service with Docker and wrote the Compose setup the team\n  still uses locally.\n- Wrote integration tests with Testcontainers against a real MongoDB instance.\n\nEDUCATION\nBSc Computer Science, University of Jordan, 2021\n\nTECHNICAL SKILLS\nJava, Spring Boot, MongoDB, Docker, REST API design, JUnit, Testcontainers,\nMaven, Git, Linux",
+  "jobDescription": "We are hiring a backend engineer to design, build and maintain the REST APIs behind our recruitment platform. You will own services end to end: schema design, endpoint implementation, authentication, and the deployment pipeline that ships them. Day to day you will be writing Java against Spring Boot, modelling data in MongoDB, and packaging services with Docker. We care about clear API contracts, tests that catch real regressions, and services that fail in understandable ways. Experience integrating with internal services over HTTP and handling partial failures gracefully is particularly relevant, since our platform coordinates several services that can each be slow or unavailable.",
+  "matchedSkills": [
+    "java",
+    "spring boot",
+    "mongodb",
+    "docker"
+  ],
+  "missingSkills": [
+    "rest api"
+  ]
+}

@@ -1,0 +1,35 @@
+Rana Odeh
+Software Engineer
+rana.odeh@example.com
+
+PROFILE
+Software engineer with three years of backend work, mostly in Python. Recently
+started working with Java on a team project and looking to move into JVM
+services full time.
+
+EXPERIENCE
+
+Software Engineer, Bright Retail
+2022 - present
+- Build and maintain REST APIs in Python using FastAPI for an inventory system.
+- Designed the PostgreSQL schema for the stock movement tables.
+- Package services with Docker and maintain the Compose setup used in
+  development.
+- Contributed to a Java Spring Boot reporting service alongside the platform
+  team, mainly endpoint work and bug fixes.
+
+Junior Developer, Petra Software
+2021 - 2022
+- Internal tooling in Python and a small amount of Node.js.
+- Wrote the deployment scripts that moved our services onto containers.
+
+PROJECTS
+Recipe API - a REST API built with Spring Boot and MongoDB as a way to learn the
+stack properly. Covers authentication, pagination, and a small React frontend.
+
+EDUCATION
+BSc Software Engineering, Yarmouk University, 2021
+
+SKILLS
+Python, FastAPI, PostgreSQL, Docker, REST API design, Java (learning),
+Spring Boot (learning), Git
