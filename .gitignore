@@ -37,3 +37,6 @@ coverage/
 .vscode/
 .DS_Store
 *.swp
+
+# ai-service local model cache
+ai-service/.venv/
