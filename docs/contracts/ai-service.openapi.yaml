@@ -1,0 +1,331 @@
+openapi: 3.0.3
+info:
+  title: Resume Screener AI Service
+  description: |
+    Internal scoring and summarization service. Mirrors the ai-service half of
+    `docs/03-API-CONTRACT.md`; if the two disagree, the Markdown doc wins.
+
+    Not exposed to the browser. Called only by api-service, over the Compose
+    network, authenticated with a shared secret header.
+
+    Stateless: no database, no user auth, no CORS. `resumeId` is an opaque
+    string this service echoes back and never interprets.
+  version: 1.0.0
+
+servers:
+  - url: http://ai-service:8000
+    description: Compose network (how api-service reaches it)
+  - url: http://localhost:8000
+    description: Dev profile only, for direct curl
+
+tags:
+  - name: scoring
+    description: Deterministic resume-to-job similarity scoring.
+  - name: summarization
+    description: Advisory prose written by the local language model. Never affects a score.
+  - name: ops
+    description: Health and model metadata.
+
+security:
+  - serviceToken: []
+
+paths:
+  /score:
+    post:
+      tags: [scoring]
+      summary: Score resumes against a job description
+      description: |
+        Deterministic — the same request always yields the same numbers for a
+        given modelVersion and weight configuration. No language model is
+        involved; this is embeddings plus cosine similarity plus skill overlap.
+
+        Results come back in the same order as the request, one per input.
+
+        A single unembeddable resume must not fail the batch: return it with
+        score 0 and empty skill arrays instead.
+      operationId: scoreResumes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScoreRequest' }
+      responses:
+        '200':
+          description: Scores, in request order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScoreResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/InvalidServiceToken' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503':
+          description: Embedding model still loading
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /summarize:
+    post:
+      tags: [summarization]
+      summary: Write a short candidate summary
+      description: |
+        Off the scoring path and allowed to fail softly. When Ollama is
+        unreachable, times out, or returns unparseable JSON, this returns
+        **200** with null prose and `degraded: true`. It does not raise.
+      operationId: summarizeResume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SummarizeRequest' }
+      responses:
+        '200':
+          description: |
+            Summary produced, or degraded. Check the `degraded` flag rather than
+            the status code.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SummarizeResponse' }
+              examples:
+                success:
+                  summary: Ollama answered
+                  value:
+                    resumeId: 665f1a2b3c4d5e6f70819210
+                    summary: Strong Java backend background with four years on Spring Boot services and hands-on MongoDB work.
+                    strengths: [4 years Spring Boot in production, Owns containerized deploys]
+                    concerns: [No explicit API design ownership]
+                    degraded: false
+                    degradedReason: null
+                    promptVersion: v1
+                    model: llama3.2:3b
+                degraded:
+                  summary: Ollama timed out
+                  value:
+                    resumeId: 665f1a2b3c4d5e6f70819210
+                    summary: null
+                    strengths: null
+                    concerns: null
+                    degraded: true
+                    degradedReason: ollama_timeout
+                    promptVersion: v1
+                    model: llama3.2:3b
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/InvalidServiceToken' }
+
+  /health:
+    get:
+      tags: [ops]
+      summary: Liveness probe
+      description: |
+        `ollamaReachable: false` does **not** make the service unhealthy —
+        scoring still works and summaries degrade. Compose must not restart the
+        container over it.
+      security: []
+      operationId: health
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+
+  /model-info:
+    get:
+      tags: [ops]
+      summary: Active model and weight configuration
+      description: api-service calls this at startup and logs the result.
+      operationId: modelInfo
+      responses:
+        '200':
+          description: Model metadata
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModelInfo' }
+        '401': { $ref: '#/components/responses/InvalidServiceToken' }
+
+components:
+  securitySchemes:
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Shared secret. Same value configured on api-service and ai-service.
+
+  responses:
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InvalidServiceToken:
+      description: Missing or wrong X-Service-Token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalError:
+      description: Unhandled error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    ErrorResponse:
+      type: object
+      description: Same envelope as api-service.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, traceId]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_FAILED
+                - MALFORMED_JSON
+                - INVALID_SERVICE_TOKEN
+                - MODEL_NOT_READY
+                - INTERNAL_ERROR
+            message: { type: string }
+            traceId: { type: string }
+            details:
+              type: object
+              nullable: true
+              additionalProperties: { type: string }
+
+    ResumeInput:
+      type: object
+      required: [resumeId, text]
+      properties:
+        resumeId:
+          type: string
+          description: Opaque. Echoed back untouched.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100000
+
+    ScoreRequest:
+      type: object
+      required: [jobDescription, resumes]
+      properties:
+        jobDescription: { type: string, minLength: 50, maxLength: 20000 }
+        requiredSkills:
+          type: array
+          maxItems: 50
+          description: Lowercase, trimmed. Empty is legal — skillScore is then 0 for everyone.
+          items: { type: string }
+        resumes:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ResumeInput' }
+
+    ScoreResult:
+      type: object
+      required: [resumeId, score, semanticScore, skillScore, matchedSkills, missingSkills]
+      properties:
+        resumeId: { type: string }
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: round(100 * (semanticWeight * semanticScore + skillWeight * skillScore))
+        semanticScore:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: Cosine similarity, max-pooled over resume sections. 4 decimals.
+        skillScore:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: matchedSkills / requiredSkills. 0 when requiredSkills is empty.
+        matchedSkills: { type: array, items: { type: string } }
+        missingSkills:
+          type: array
+          description: matchedSkills union missingSkills always equals requiredSkills.
+          items: { type: string }
+
+    ScoreResponse:
+      type: object
+      required: [results, modelVersion, weights, durationMs]
+      properties:
+        results:
+          type: array
+          description: Same order as the request.
+          items: { $ref: '#/components/schemas/ScoreResult' }
+        modelVersion: { type: string, example: all-MiniLM-L6-v2@1110a24 }
+        weights: { $ref: '#/components/schemas/Weights' }
+        durationMs: { type: integer, format: int64 }
+
+    SummarizeRequest:
+      type: object
+      required: [resumeId, resumeText, jobDescription]
+      properties:
+        resumeId: { type: string }
+        resumeText: { type: string, minLength: 1, maxLength: 100000 }
+        jobDescription: { type: string, minLength: 50, maxLength: 20000 }
+        matchedSkills: { type: array, items: { type: string } }
+        missingSkills: { type: array, items: { type: string } }
+
+    SummarizeResponse:
+      type: object
+      required: [resumeId, summary, strengths, concerns, degraded, promptVersion, model]
+      properties:
+        resumeId: { type: string }
+        summary:
+          type: string
+          nullable: true
+          maxLength: 600
+          description: 2-3 sentences. Null when degraded.
+        strengths:
+          type: array
+          nullable: true
+          maxItems: 3
+          items: { type: string, maxLength: 120 }
+        concerns:
+          type: array
+          nullable: true
+          maxItems: 3
+          items: { type: string, maxLength: 120 }
+        degraded: { type: boolean }
+        degradedReason:
+          type: string
+          nullable: true
+          description: Null when `degraded` is false.
+          enum: [ollama_unreachable, ollama_timeout, invalid_json, disabled, null]
+        promptVersion: { type: string, example: v1 }
+        model: { type: string, example: llama3.2:3b }
+
+    Weights:
+      type: object
+      required: [semantic, skill]
+      properties:
+        semantic: { type: number, format: double, example: 0.7 }
+        skill: { type: number, format: double, example: 0.3 }
+
+    HealthResponse:
+      type: object
+      required: [status, modelLoaded, ollamaReachable]
+      properties:
+        status: { type: string, enum: [ok, loading] }
+        modelLoaded: { type: boolean }
+        ollamaReachable:
+          type: boolean
+          description: Informational. False does not mean unhealthy.
+
+    ModelInfo:
+      type: object
+      required: [embeddingModel, embeddingRevision, modelVersion, dimensions, maxSequenceLength, promptVersion, weights]
+      properties:
+        embeddingModel: { type: string, example: sentence-transformers/all-MiniLM-L6-v2 }
+        embeddingRevision: { type: string, example: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41 }
+        modelVersion: { type: string, example: all-MiniLM-L6-v2@1110a24 }
+        dimensions: { type: integer, example: 384 }
+        maxSequenceLength: { type: integer, example: 256 }
+        ollamaModel: { type: string, example: llama3.2:3b }
+        promptVersion: { type: string, example: v1 }
+        weights: { $ref: '#/components/schemas/Weights' }

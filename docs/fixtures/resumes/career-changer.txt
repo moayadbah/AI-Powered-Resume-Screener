@@ -1,0 +1,36 @@
+Yousef Mansour
+yousef.mansour@example.com | Irbid, Jordan
+
+OBJECTIVE
+Mechanical engineer moving into software development. Completed a nine month
+part time programme in backend development and building projects while finishing
+my current role.
+
+EDUCATION
+MSc Computer Science (in progress, expected 2027), Jordan University of Science
+and Technology
+BSc Mechanical Engineering, JUST, 2019
+
+TRAINING
+Backend Development Programme, Coding Academy, 2025
+Covered Java fundamentals, object oriented design, SQL, and an introduction to
+Spring Boot. Final project was a REST API for a library system using Spring Boot
+and a relational database.
+
+PROJECTS
+Library API - Spring Boot service with endpoints for borrowing and returning
+books, plus a simple JWT login. Deployed locally with Docker.
+Sensor dashboard - Python scripts that read data from test rig sensors and
+produce weekly summary charts. Written during my mechanical engineering role.
+
+EXPERIENCE
+
+Mechanical Design Engineer, Falcon Industries
+2019 - present
+- Design and validate components for industrial equipment.
+- Automated a manual reporting process with Python, cutting a two day monthly
+  task to about an hour.
+- Maintain the team's internal data spreadsheets and analysis scripts.
+
+SKILLS
+Java, Spring Boot, SQL, Python, Docker, Git, SolidWorks, MATLAB

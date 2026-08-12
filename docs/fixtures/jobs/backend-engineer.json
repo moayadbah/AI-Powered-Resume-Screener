@@ -1,0 +1,6 @@
+{
+  "title": "Backend Engineer (Java)",
+  "description": "We are hiring a backend engineer to design, build and maintain the REST APIs behind our recruitment platform. You will own services end to end: schema design, endpoint implementation, authentication, and the deployment pipeline that ships them. Day to day you will be writing Java against Spring Boot, modelling data in MongoDB, and packaging services with Docker. We care about clear API contracts, tests that catch real regressions, and services that fail in understandable ways. Experience integrating with internal services over HTTP and handling partial failures gracefully is particularly relevant, since our platform coordinates several services that can each be slow or unavailable.",
+  "requiredSkills": ["Java", "Spring Boot", "MongoDB", "Docker", "REST API"],
+  "location": "Amman, Jordan"
+}

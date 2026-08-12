@@ -1,0 +1,62 @@
+name: ai-service
+
+on:
+  pull_request:
+    paths:
+      - 'ai-service/**'
+      - 'docs/fixtures/**'
+      - '.github/workflows/ai-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ai-service/**'
+      - 'docs/fixtures/**'
+
+defaults:
+  run:
+    working-directory: ai-service
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.11 to match the Dockerfile. torch/sentence-transformers wheels lag
+      # newer Python releases; on 3.13+ pip falls back to building from source.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            ai-service/requirements.txt
+            ai-service/requirements-dev.txt
+
+      # The embedding model is ~90 MB. Without this every run re-downloads it.
+      - name: Cache the model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ hashFiles('ai-service/requirements.txt') }}-all-MiniLM-L6-v2
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format check
+        run: ruff format --check .
+
+      - name: Test
+        env:
+          SERVICE_TOKEN: ci-test-token
+          # No Ollama in CI. Tests stub the HTTP calls with respx; this just
+          # guarantees a real one would fail fast rather than hang.
+          OLLAMA_BASE_URL: http://127.0.0.1:1
+          OLLAMA_TIMEOUT_SECONDS: '2'
+        run: pytest -q

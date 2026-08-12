@@ -1,0 +1,22 @@
+# Lint config for the API contracts in docs/contracts/.
+# Run locally with:  npx @redocly/cli lint
+apis:
+  api-service:
+    root: docs/contracts/api-service.openapi.yaml
+  ai-service:
+    root: docs/contracts/ai-service.openapi.yaml
+
+extends:
+  - recommended
+
+rules:
+  # Local-only project. localhost is the correct server URL, not a placeholder
+  # someone forgot to replace.
+  no-server-example.com: off
+
+  # Internal internship project, not a published package. No license block.
+  info-license: off
+
+  # The health probes genuinely have no 4xx response — they're unauthenticated
+  # and take no input. Everything else is expected to document its failures.
+  operation-4xx-response: warn
