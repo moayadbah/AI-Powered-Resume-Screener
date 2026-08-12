@@ -257,7 +257,7 @@ components:
           type: array
           description: Same order as the request.
           items: { $ref: '#/components/schemas/ScoreResult' }
-        modelVersion: { type: string, example: all-MiniLM-L6-v2@c9745ed }
+        modelVersion: { type: string, example: all-MiniLM-L6-v2@1110a24 }
         weights: { $ref: '#/components/schemas/Weights' }
         durationMs: { type: integer, format: int64 }
 
@@ -322,8 +322,8 @@ components:
       required: [embeddingModel, embeddingRevision, modelVersion, dimensions, maxSequenceLength, promptVersion, weights]
       properties:
         embeddingModel: { type: string, example: sentence-transformers/all-MiniLM-L6-v2 }
-        embeddingRevision: { type: string, example: c9745ed1d9f207416be6d2e6f8de32d1f16199bf }
-        modelVersion: { type: string, example: all-MiniLM-L6-v2@c9745ed }
+        embeddingRevision: { type: string, example: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41 }
+        modelVersion: { type: string, example: all-MiniLM-L6-v2@1110a24 }
         dimensions: { type: integer, example: 384 }
         maxSequenceLength: { type: integer, example: 256 }
         ollamaModel: { type: string, example: llama3.2:3b }

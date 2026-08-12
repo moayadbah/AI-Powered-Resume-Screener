@@ -137,7 +137,7 @@ per candidate.
 | `strengths` | string[] | no | Up to 3 bullets. Null alongside `summary`. |
 | `concerns` | string[] | no | Up to 3 bullets. Null alongside `summary`. |
 | `summaryDegraded` | bool | yes | `true` when scoring succeeded but summarization didn't. Drives the "summary unavailable" chip in the UI. |
-| `modelVersion` | string | yes | e.g. `all-MiniLM-L6-v2@c9745ed`. |
+| `modelVersion` | string | yes | e.g. `all-MiniLM-L6-v2@1110a24`. |
 | `promptVersion` | string | no | e.g. `v1`. Null when there's no summary. |
 | `weights` | object | yes | `{ "semantic": 0.7, "skill": 0.3 }` as used for this run. |
 | `scoredAt` | date | yes | |
@@ -161,7 +161,7 @@ resume changed or we did.
   "strengths": ["4 years Spring Boot in production", "Owns containerized deploys", "Direct MongoDB schema experience"],
   "concerns": ["No explicit API design ownership", "No testing frameworks named"],
   "summaryDegraded": false,
-  "modelVersion": "all-MiniLM-L6-v2@c9745ed",
+  "modelVersion": "all-MiniLM-L6-v2@1110a24",
   "promptVersion": "v1",
   "weights": { "semantic": 0.7, "skill": 0.3 },
   "scoredAt": "2026-08-12T09:35:02.417Z"

@@ -283,7 +283,7 @@ the dashboard uses 180 s.
   "screened": 11,
   "skipped": 1,
   "summariesDegraded": 0,
-  "modelVersion": "all-MiniLM-L6-v2@c9745ed",
+  "modelVersion": "all-MiniLM-L6-v2@1110a24",
   "durationMs": 14320,
   "screenedAt": "2026-08-12T09:35:02Z"
 }
@@ -375,7 +375,7 @@ Full detail, including the prose.
     "strengths": ["4 years Spring Boot in production", "Owns containerized deploys"],
     "concerns": ["No explicit API design ownership"],
     "summaryDegraded": false,
-    "modelVersion": "all-MiniLM-L6-v2@c9745ed",
+    "modelVersion": "all-MiniLM-L6-v2@1110a24",
     "promptVersion": "v1",
     "weights": { "semantic": 0.7, "skill": 0.3 },
     "scoredAt": "2026-08-12T09:35:02Z"
@@ -454,7 +454,7 @@ chars. `resumeId` is opaque — `ai-service` only echoes it back.
       "missingSkills": ["java", "spring boot", "docker", "rest api"]
     }
   ],
-  "modelVersion": "all-MiniLM-L6-v2@c9745ed",
+  "modelVersion": "all-MiniLM-L6-v2@1110a24",
   "weights": { "semantic": 0.7, "skill": 0.3 },
   "durationMs": 842
 }
@@ -535,8 +535,8 @@ Requires the service token.
 ```json
 {
   "embeddingModel": "sentence-transformers/all-MiniLM-L6-v2",
-  "embeddingRevision": "c9745ed1d9f207416be6d2e6f8de32d1f16199bf",
-  "modelVersion": "all-MiniLM-L6-v2@c9745ed",
+  "embeddingRevision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "modelVersion": "all-MiniLM-L6-v2@1110a24",
   "dimensions": 384,
   "maxSequenceLength": 256,
   "ollamaModel": "llama3.2:3b",

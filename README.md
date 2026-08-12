@@ -52,13 +52,10 @@ docker compose up --build
 ```
 
 First build takes 10–15 minutes (torch, plus the embedding model baked into the
-image). Then open <http://localhost:5173>, or:
+image). Then open <http://localhost:5173>.
 
-```bash
-./scripts/seed.sh
-```
-
-which creates a demo account, uploads the sample resumes, and runs a screen.
+There'll also be a `./scripts/seed.sh` that creates a demo account, uploads the
+sample resumes and runs a screen — it lands with task B13.
 
 ## Repo layout
 

@@ -65,7 +65,7 @@ No `os.getenv` scattered through the code.
 |---|---|---|---|
 | `service_token` | `SERVICE_TOKEN` | — | Required. Startup fails if unset. |
 | `embedding_model` | `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | |
-| `embedding_revision` | `EMBEDDING_MODEL_REVISION` | `c9745ed1...` | Pinned commit hash, not a branch. |
+| `embedding_revision` | `EMBEDDING_MODEL_REVISION` | `1110a241...` | Pinned commit hash, not a branch. |
 | `semantic_weight` | `SEMANTIC_WEIGHT` | `0.7` | |
 | `skill_weight` | `SKILL_WEIGHT` | `0.3` | Must sum to 1.0 with the above — validated at startup. |
 | `ollama_base_url` | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | `localhost` when running natively. |
@@ -75,6 +75,23 @@ No `os.getenv` scattered through the code.
 
 Weights that don't sum to 1.0 must raise at startup, not silently produce
 scores above 100.
+
+### About the pinned revision
+
+`EMBEDDING_MODEL_REVISION` is a commit hash on the Hugging Face repo, not a
+branch name. Pinning it means the model can't change under us — an unpinned
+`main` would shift every score in the database with no version to point at.
+
+The value in `.env.example` was current when it was written. Re-derive it, or
+check it's still what you think it is, with:
+
+```bash
+curl -s https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2 | jq -r .sha
+```
+
+If you deliberately move to a newer revision, bump it in `.env.example` and the
+Dockerfile together, and expect existing `screenings` rows to have a stale
+`modelVersion` — that's the whole point of storing it.
 
 ## Scoring
 
@@ -334,7 +351,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 # Bake the model in so containers never download at boot.
 ARG EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-ARG EMBEDDING_MODEL_REVISION=c9745ed1d9f207416be6d2e6f8de32d1f16199bf
+ARG EMBEDDING_MODEL_REVISION=1110a243fdf4706b3f48f1d95db1a4f5529b4d41
 RUN python -c "\
 from sentence_transformers import SentenceTransformer; \
 SentenceTransformer('${EMBEDDING_MODEL}', revision='${EMBEDDING_MODEL_REVISION}', \

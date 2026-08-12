@@ -532,7 +532,7 @@ components:
         screened: { type: integer }
         skipped: { type: integer, description: Resumes not in PARSED state }
         summariesDegraded: { type: integer, description: Scored but no summary }
-        modelVersion: { type: string, example: all-MiniLM-L6-v2@c9745ed }
+        modelVersion: { type: string, example: all-MiniLM-L6-v2@1110a24 }
         durationMs: { type: integer, format: int64 }
         screenedAt: { type: string, format: date-time }
 
