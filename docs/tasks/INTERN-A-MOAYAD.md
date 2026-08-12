@@ -178,16 +178,22 @@ OLLAMA_BASE_URL=http://127.0.0.1:1 curl -s -X POST localhost:8000/summarize \
 
 **Done when**
 - Two-stage, `python:3.11-slim`
-- **CPU-only torch index URL** — check the image is ~1.2 GB, not ~3 GB. If it's 3 GB you pulled CUDA
+- **CPU-only torch index URL.** Verify by asking torch directly, not by image
+  size — ~2.1 GB is normal for the correct CPU build
 - Embedding model **baked in at build time**; `HF_HUB_OFFLINE=1` in the runtime stage
-- Container answers `/health` with `modelLoaded: true` without network access
+- Container answers `/health` with `modelLoaded: true` on `--network none`
+- Runs as a non-root user
 - Single uvicorn worker
 
 ```bash
 docker build -t ai-service ./ai-service
-docker images ai-service --format '{{.Size}}'
-docker run --rm -p 8000:8000 -e SERVICE_TOKEN=x --network none ai-service &
-sleep 25 && curl -s localhost:8000/health | jq
+docker run --rm ai-service python -c "import torch; print(torch.__version__, torch.version.cuda)"
+# want: 2.2.2+cpu None
+
+docker run -d --rm --name t --network none -e SERVICE_TOKEN=x ai-service
+sleep 25 && docker exec t python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"
+docker exec t whoami   # appuser, not root
+docker stop t
 ```
 
 ---
