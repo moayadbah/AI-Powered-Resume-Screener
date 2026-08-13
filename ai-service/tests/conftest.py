@@ -49,5 +49,11 @@ def embedder(settings):
 
 
 @pytest.fixture
-def auth_headers():
-    return {"X-Service-Token": "test-token"}
+def auth_headers(settings):
+    """Read the token from settings rather than hardcoding it.
+
+    CI sets SERVICE_TOKEN to its own value, and setdefault above leaves that in
+    place - a literal here would only match by luck locally and 401 everywhere
+    else.
+    """
+    return {"X-Service-Token": settings.service_token}
