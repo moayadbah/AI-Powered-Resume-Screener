@@ -1,16 +1,14 @@
 # Pinned exactly. torch and sentence-transformers change behaviour between minor
 # releases, and a floating version means scores that shift for no visible reason.
-fastapi==0.115.6
+#
+# Run `pip-audit -r requirements.txt` before bumping anything, and keep these
+# current - an old pin here is a security finding, not a stability win.
+fastapi==0.141.1
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
 httpx==0.28.1
-sentence-transformers==3.3.1
-
-# torch 2.2.2 is the last release with macOS x86_64 wheels. Pinning it means the
-# same version runs in the container, on an Intel Mac, and on Windows - so the
-# embeddings, and therefore the scores, match everywhere.
-torch==2.2.2
-
-# torch 2.2.x was built against NumPy 1.x and crashes on import with NumPy 2.
-numpy==1.26.4
+sentence-transformers==5.7.0
+transformers==5.15.0
+torch==2.13.0
+numpy==2.3.4

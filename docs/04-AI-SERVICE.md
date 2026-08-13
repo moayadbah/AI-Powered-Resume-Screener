@@ -414,7 +414,7 @@ is normal here. Check directly:
 
 ```bash
 docker run --rm ai-service:local python -c "import torch; print(torch.__version__, torch.version.cuda)"
-# want: 2.2.2+cpu None
+# want: 2.13.0+cpu None
 ```
 
 First ready request takes 10–20 s, most of it loading torch. Don't set an
@@ -426,18 +426,27 @@ Pin exact versions in `requirements.txt`. `torch` and `sentence-transformers`
 change behaviour between minor releases, and a floating version means scores
 that shift for no visible reason.
 
-```
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-pydantic==2.10.4
-pydantic-settings==2.7.0
-sentence-transformers==3.3.1
-numpy==2.2.1
-httpx==0.28.1
+See [`ai-service/requirements.txt`](../ai-service/requirements.txt) for the
+current pins. `requirements-dev.txt` adds `pytest`, `pytest-asyncio`, `ruff`,
+`respx` (for stubbing the Ollama HTTP calls), and `jsonschema` + `PyYAML` for the
+contract-conformance test.
+
+**Run `pip-audit -r requirements.txt` before bumping anything, and treat a stale
+pin as a finding rather than a stability win.** We originally pinned
+`torch==2.2.2` — the last release with macOS x86_64 wheels — to get identical
+embeddings on an Intel Mac, in the container, and on Windows. That version
+carries 11 known CVEs. Reproducibility across dev laptops is not worth shipping
+those, so the pin follows current torch and an Intel Mac runs the suite in Docker
+instead:
+
+```bash
+docker build -f ai-service/Dockerfile.test -t ai-service-test .   # context: repo root
+docker run --rm ai-service-test
 ```
 
-`requirements-dev.txt`: `pytest`, `pytest-asyncio`, `ruff`, `respx` (for stubbing
-the Ollama HTTP calls).
+Bumping torch 2.2 → 2.13 and transformers 4 → 5 did **not** change the fixture
+ranking, which is the payoff for asserting ordering and bands rather than exact
+scores ([08-TESTING.md](08-TESTING.md)).
 
 ## Local run
 

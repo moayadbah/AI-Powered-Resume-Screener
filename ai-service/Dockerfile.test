@@ -1,0 +1,36 @@
+# Runs the test suite on linux/amd64.
+#
+# Needed because torch dropped macOS x86_64 wheels after 2.2.2, so an Intel Mac
+# cannot install the pinned (patched) torch natively. This keeps the suite
+# runnable locally on any machine instead of only in CI.
+#
+#   docker build -f Dockerfile.test -t ai-service-test .
+#   docker run --rm ai-service-test
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir torch==2.13.0 \
+    --index-url https://download.pytorch.org/whl/cpu
+
+COPY ai-service/requirements.txt ai-service/requirements-dev.txt ./
+RUN grep -v '^torch==' requirements.txt > /tmp/rest.txt \
+    && pip install --no-cache-dir -r /tmp/rest.txt \
+    && grep -v '^-r ' requirements-dev.txt | pip install --no-cache-dir -r /dev/stdin
+
+# Fixtures and the OpenAPI spec live outside this directory, so the build
+# context is the repo root. Tests resolve them via parents[2], which lands on /.
+COPY ai-service/app ./app
+COPY ai-service/tests ./tests
+COPY ai-service/pyproject.toml ai-service/pytest.ini ./
+COPY docs/fixtures /docs/fixtures
+COPY docs/contracts /docs/contracts
+
+# A dead port, so a test that ever reaches Ollama for real fails fast instead of
+# hanging. SERVICE_TOKEN is deliberately NOT set here - conftest supplies a
+# default, and baking even a dummy credential into an image is a bad habit.
+ENV OLLAMA_BASE_URL=http://127.0.0.1:1 \
+    OLLAMA_TIMEOUT_SECONDS=2
+
+CMD ["sh", "-c", "ruff check . && ruff format --check . && pytest -q"]

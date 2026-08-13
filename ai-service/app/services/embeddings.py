@@ -65,7 +65,13 @@ class Embedder:
 
     @property
     def dimensions(self) -> int:
-        return int(self._require().get_sentence_embedding_dimension())
+        model = self._require()
+        # Renamed in sentence-transformers 5.x. Support both so the pin can move
+        # without this breaking.
+        getter = getattr(model, "get_embedding_dimension", None) or (
+            model.get_sentence_embedding_dimension
+        )
+        return int(getter())
 
     @property
     def max_sequence_length(self) -> int:

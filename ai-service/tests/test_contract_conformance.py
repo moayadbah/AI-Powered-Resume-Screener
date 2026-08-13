@@ -123,7 +123,11 @@ def test_error_envelope_conforms(client, spec):
 
 
 def test_every_documented_path_exists(client, spec):
-    """A path in the spec that the app does not serve is drift."""
-    served = {route.path for route in app.routes}
+    """A path in the spec that the app does not serve is drift.
+
+    Read the app's own generated schema rather than walking `app.routes` - the
+    shape of that list is a FastAPI internal and has changed between versions.
+    """
+    served = set(app.openapi()["paths"])
     for path in spec["paths"]:
         assert path in served, f"{path} is in the spec but not served"

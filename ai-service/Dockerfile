@@ -7,7 +7,7 @@ WORKDIR /build
 
 # CPU-only torch. The default index pulls roughly 2 GB of CUDA wheels for
 # hardware the container does not have - this is not optional.
-RUN pip install --no-cache-dir torch==2.2.2 \
+RUN pip install --no-cache-dir torch==2.13.0 \
     --index-url https://download.pytorch.org/whl/cpu
 
 COPY requirements.txt .

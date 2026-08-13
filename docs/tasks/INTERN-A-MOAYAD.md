@@ -188,7 +188,7 @@ OLLAMA_BASE_URL=http://127.0.0.1:1 curl -s -X POST localhost:8000/summarize \
 ```bash
 docker build -t ai-service ./ai-service
 docker run --rm ai-service python -c "import torch; print(torch.__version__, torch.version.cuda)"
-# want: 2.2.2+cpu None
+# want: 2.13.0+cpu None
 
 docker run -d --rm --name t --network none -e SERVICE_TOKEN=x ai-service
 sleep 25 && docker exec t python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"

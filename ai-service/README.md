@@ -33,10 +33,17 @@ uvicorn app.main:app --reload --port 8000
 Use **3.11**. `torch` and `sentence-transformers` don't publish wheels for the
 newest Python releases, and pip will try to build from source.
 
-`torch` is pinned to **2.2.2** and `numpy` to **1.26.4** on purpose: 2.2.2 is the
-last release with macOS x86_64 wheels, so pinning it means the same version — and
-therefore the same embeddings and the same scores — everywhere. torch 2.2.x was
-built against NumPy 1.x and crashes on import with NumPy 2.
+**On an Intel Mac, `pip install` will fail** — torch dropped macOS x86_64 wheels
+after 2.2.2, and 2.2.2 carries 11 known CVEs so we don't pin it. Run the suite in
+Docker instead:
+
+```bash
+cd ..                                                   # build context is the repo root
+docker build -f ai-service/Dockerfile.test -t ai-service-test .
+docker run --rm ai-service-test
+```
+
+Apple Silicon, Linux, and Windows all install natively and are unaffected.
 
 ## Test
 
