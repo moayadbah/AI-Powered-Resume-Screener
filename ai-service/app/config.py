@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     service_token: str = Field(..., alias="SERVICE_TOKEN")
 
     embedding_model: str = Field("sentence-transformers/all-MiniLM-L6-v2", alias="EMBEDDING_MODEL")
+
+    # NOT a secret, despite looking like one to entropy-based scanners: this is
+    # the public Hugging Face commit SHA of the model repo, pinned so the model
+    # cannot change under us. Verify it with:
+    #   curl -s https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2 | jq -r .sha
     embedding_revision: str = Field(
         "1110a243fdf4706b3f48f1d95db1a4f5529b4d41", alias="EMBEDDING_MODEL_REVISION"
     )
