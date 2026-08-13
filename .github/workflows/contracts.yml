@@ -2,6 +2,11 @@ name: contracts
 
 on:
   pull_request:
+    # `labeled` and `unlabeled` matter: the drift job below can be waived with
+    # the `contract-unchanged` label, and without these the label alone does not
+    # re-trigger the run. A re-run replays the original event payload, which
+    # still has no label, so the waiver would never take effect.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
