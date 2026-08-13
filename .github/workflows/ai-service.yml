@@ -62,7 +62,8 @@ jobs:
 
       - name: Test
         env:
-          SERVICE_TOKEN: ci-test-token
+          # Generated per run - a literal here reads as a hardcoded credential.
+          SERVICE_TOKEN: ${{ github.run_id }}-${{ github.run_attempt }}
           # No Ollama in CI. Tests stub the HTTP calls with respx; this just
           # guarantees a real one would fail fast rather than hang.
           OLLAMA_BASE_URL: http://127.0.0.1:1
@@ -92,7 +93,7 @@ jobs:
 
       - name: Starts with no network, model baked in, non-root
         run: |
-          docker run -d --rm --name ai --network none -e SERVICE_TOKEN=ci-token ai-service:ci
+          docker run -d --rm --name ai --network none -e SERVICE_TOKEN=$GITHUB_RUN_ID ai-service:ci
           for i in $(seq 1 45); do
             if docker exec ai python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:8000/health').read().decode())" 2>/dev/null; then
               ok=1; break

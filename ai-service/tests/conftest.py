@@ -1,10 +1,13 @@
 import json
 import os
+import secrets
 from pathlib import Path
 
 import pytest
 
-os.environ.setdefault("SERVICE_TOKEN", "test-token")
+# Generated rather than a literal: a hardcoded credential-shaped string trips
+# secret scanners, and tests read the value back from settings anyway.
+os.environ.setdefault("SERVICE_TOKEN", secrets.token_hex(16))
 # A dead port: if a test ever reaches Ollama for real it should fail fast rather
 # than hang until the suite times out.
 os.environ.setdefault("OLLAMA_BASE_URL", "http://127.0.0.1:1")
