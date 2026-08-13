@@ -108,7 +108,6 @@ export interface paths {
          *     failed** — the record carries `parseStatus`. Only files rejected before
          *     storage appear in `rejected`. A request where everything is rejected
          *     still returns 201 with an empty `uploaded` array.
-         *
          */
         post: operations["uploadResumes"];
         delete?: never;
@@ -134,7 +133,6 @@ export interface paths {
          *     Results are upserted on (jobId, resumeId), so re-screening replaces
          *     rather than appends. Scoring failure fails the request; summarization
          *     failure does not — it increments `summariesDegraded`.
-         *
          */
         post: operations["screenJob"];
         delete?: never;
@@ -154,7 +152,6 @@ export interface paths {
          * Ranked candidate list
          * @description Includes unscreened resumes with `screening: null`; those always sort
          *     last regardless of `order`.
-         *
          */
         get: operations["listCandidates"];
         put?: never;
@@ -304,7 +301,6 @@ export interface components {
          * @description PARSED - text extracted.
          *     EMPTY  - opened fine but no text (scan / image-only). Not screened.
          *     FAILED - extraction threw (encrypted, corrupt). Not screened.
-         *
          * @enum {string}
          */
         ParseStatus: "PARSED" | "EMPTY" | "FAILED";
@@ -512,9 +508,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            /** @description Invalid credentials. Wrong email and wrong password return the same
+            /**
+             * @description Invalid credentials. Wrong email and wrong password return the same
              *     code and message on purpose.
-             *      */
+             */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -584,9 +581,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created. `requiredSkills` is normalized (lowercased, trimmed,
+            /**
+             * @description Created. `requiredSkills` is normalized (lowercased, trimmed,
              *     de-duplicated) so it may differ from what was sent.
-             *      */
+             */
             201: {
                 headers: {
                     [name: string]: unknown;

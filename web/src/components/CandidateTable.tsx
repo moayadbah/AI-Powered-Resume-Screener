@@ -38,7 +38,12 @@ export function CandidateTable({ candidates, sort, order, onSortChange }: Props)
   const arrow = (key: SortKey) => (sort === key ? (order === 'desc' ? ' ▼' : ' ▲') : '')
 
   // Rank only counts scored rows, so unscreened ones do not consume positions.
-  let rank = 0
+  // Computed up front rather than by mutating a counter during render, which is
+  // unsafe if React re-renders part of the list.
+  const ranks = new Map<string, number>()
+  candidates
+    .filter((c) => c.screening)
+    .forEach((c, i) => ranks.set(c.resumeId, i + 1))
 
   return (
     <table className="candidates">
@@ -70,11 +75,11 @@ export function CandidateTable({ candidates, sort, order, onSortChange }: Props)
         {candidates.map((c) => {
           const note = statusNote(c)
           const s = c.screening
-          if (s) rank += 1
+          const rank = ranks.get(c.resumeId)
 
           return (
             <tr key={c.resumeId} className={note ? 'row-muted' : undefined}>
-              <td>{s ? rank : '—'}</td>
+              <td>{rank ?? '—'}</td>
               <td>
                 <Link to={`/candidates/${c.resumeId}`}>{c.candidateName}</Link>
                 <div className="filename">{c.originalFilename}</div>
