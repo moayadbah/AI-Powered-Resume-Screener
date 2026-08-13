@@ -11,7 +11,7 @@ see the boundary rules in [01-ARCHITECTURE.md](01-ARCHITECTURE.md).
 |---|---|---|
 | Build | Vite 6 | Fast dev server, no config to fight. |
 | Language | TypeScript, `strict: true` | The API types are the whole app; losing them defeats the point. |
-| Routing | React Router 6 | |
+| Routing | React Router 7 | |
 | Server state | TanStack Query 5 | Caching, refetch, loading/error states we'd otherwise hand-roll badly. |
 | Charts | Chart.js 4 + react-chartjs-2 | |
 | Styling | CSS Modules | No framework. This is four screens. |
@@ -19,6 +19,19 @@ see the boundary rules in [01-ARCHITECTURE.md](01-ARCHITECTURE.md).
 
 No component library. Four screens don't justify the dependency, and hand-writing
 the table is faster than configuring someone else's.
+
+Versions are chosen by `npm audit`, not by preference — React Router 7 rather
+than 6, and current Vite/Vitest, because the older pins carried advisories. Run
+`npm audit` before adding or bumping anything; a stale pin is a finding, not a
+stability win.
+
+### Developing without the API
+
+`VITE_USE_MOCKS=true` (the default in `.env.development`) starts MSW in the
+browser with the same handlers the tests use, so the dashboard runs against
+stubbed contract examples before `api-service` exists. Set it to `false` to hit
+the real API. Because the browser and the test suite share one set of handlers,
+they cannot drift apart.
 
 ## Layout
 
