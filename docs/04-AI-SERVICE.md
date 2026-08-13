@@ -135,8 +135,10 @@ Rules:
   words of overlap. Plenty of resumes are formatted as prose.
 - Sections over ~180 words are chunked the same way; a long `experience` section
   becomes several chunks.
-- Chunks under 20 words are dropped — they're usually a stray heading and they
-  add noise to the max-pool.
+- Sections under 20 words are **merged into the next section**, not dropped. A
+  lone `SKILLS` heading is noise in the max-pool, but a two-line `EDUCATION`
+  block is not — for a career-changer it's the entire signal, and the `header`
+  block is where the candidate's name lives. Nothing is discarded.
 - Cap at 30 chunks per resume. Beyond that we're in "someone pasted a
   dissertation" territory.
 
@@ -202,6 +204,17 @@ resume text:
 ```python
 skill_score = len(matched) / len(required_skills) if required_skills else 0.0
 ```
+
+**Known limitation, measured on the fixtures.** Literal matching has no notion of
+proficiency. `partial-backend.txt` says "Java (learning)" and "Spring Boot
+(learning)" and still scores `skillScore: 1.00` — identical to a candidate with
+four years of it. The semantic score is what actually separates them (0.58 vs
+0.70 on `backend-engineer`), which is a large part of why it carries 70% of the
+weight.
+
+Don't try to fix this with negative-keyword rules ("ignore if preceded by
+learning"). That's an arms race against phrasing. If proficiency needs to
+matter, it belongs in the embedding side or in per-section weighting.
 
 Empty `requiredSkills` → `skillScore` 0.0, and the final score is 70% of the
 semantic score at most. That's intended: a job with no listed skills gets a
@@ -372,13 +385,40 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 Notes worth keeping:
 
 - **`--index-url .../whl/cpu` is not optional.** Default torch drags in CUDA
-  wheels: roughly 2 GB of image for hardware that isn't there.
+  wheels for hardware the container doesn't have.
 - **`HF_HUB_OFFLINE=1`** makes an accidental network fetch fail loudly at build
   review time instead of silently at runtime.
-- Expect ~1.2 GB final image and 10–20 s to first ready request, most of it
-  loading torch. Don't set an aggressive Compose healthcheck `start_period`.
+- **Use `COPY --chown=`, never a later `RUN chown -R`.** A recursive chown
+  rewrites every file into a new layer — doing it to `/opt/models` duplicated
+  the entire 88 MB model cache in the image.
 - One worker. The model isn't thread-safe to share carelessly, and multiple
   workers each load their own copy of the weights.
+
+### Measured size
+
+**~2.1 GB**, and that is the CPU-only build working correctly. Breakdown:
+
+| | |
+|---|---|
+| `torch` | 708 MB |
+| `transformers` | 119 MB |
+| `scipy` | 113 MB |
+| `sympy` | 80 MB |
+| `sklearn` | 50 MB |
+| `numpy` (+ libs) | 79 MB |
+| model cache | 88 MB |
+| base image + rest | remainder |
+
+So **don't use image size to tell whether you accidentally pulled CUDA** — 2 GB
+is normal here. Check directly:
+
+```bash
+docker run --rm ai-service:local python -c "import torch; print(torch.__version__, torch.version.cuda)"
+# want: 2.13.0+cpu None
+```
+
+First ready request takes 10–20 s, most of it loading torch. Don't set an
+aggressive Compose healthcheck `start_period` — 60 s.
 
 ## Dependencies
 
@@ -386,18 +426,27 @@ Pin exact versions in `requirements.txt`. `torch` and `sentence-transformers`
 change behaviour between minor releases, and a floating version means scores
 that shift for no visible reason.
 
-```
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-pydantic==2.10.4
-pydantic-settings==2.7.0
-sentence-transformers==3.3.1
-numpy==2.2.1
-httpx==0.28.1
+See [`ai-service/requirements.txt`](../ai-service/requirements.txt) for the
+current pins. `requirements-dev.txt` adds `pytest`, `pytest-asyncio`, `ruff`,
+`respx` (for stubbing the Ollama HTTP calls), and `jsonschema` + `PyYAML` for the
+contract-conformance test.
+
+**Run `pip-audit -r requirements.txt` before bumping anything, and treat a stale
+pin as a finding rather than a stability win.** We originally pinned
+`torch==2.2.2` — the last release with macOS x86_64 wheels — to get identical
+embeddings on an Intel Mac, in the container, and on Windows. That version
+carries 11 known CVEs. Reproducibility across dev laptops is not worth shipping
+those, so the pin follows current torch and an Intel Mac runs the suite in Docker
+instead:
+
+```bash
+docker build -f ai-service/Dockerfile.test -t ai-service-test .   # context: repo root
+docker run --rm ai-service-test
 ```
 
-`requirements-dev.txt`: `pytest`, `pytest-asyncio`, `ruff`, `respx` (for stubbing
-the Ollama HTTP calls).
+Bumping torch 2.2 → 2.13 and transformers 4 → 5 did **not** change the fixture
+ranking, which is the payoff for asserting ordering and bands rather than exact
+scores ([08-TESTING.md](08-TESTING.md)).
 
 ## Local run
 
@@ -426,5 +475,7 @@ sectioning or normalization — check that the text survived to `encode()`.
 
 - [ ] Decide whether `header` sections should be excluded from the max-pool.
       A name and address block sometimes scores oddly high on short JDs.
+      Partly mitigated: the header is usually short enough to merge into the
+      following section rather than standing alone as its own chunk.
 - [ ] Alias table is hand-written and will not scale. Revisit once we see real
       resumes.
