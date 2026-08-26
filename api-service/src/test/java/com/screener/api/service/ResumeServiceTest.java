@@ -1,0 +1,9 @@
+package com.screener.api.service;
+
+import static org.assertj.core.api.Assertions.*;import static org.mockito.ArgumentMatchers.*;import static org.mockito.Mockito.*;
+import com.screener.api.model.Resume;import com.screener.api.repository.ResumeRepository;import java.nio.file.Files;import org.junit.jupiter.api.Test;import org.junit.jupiter.api.io.TempDir;import org.springframework.mock.web.MockMultipartFile;
+class ResumeServiceTest {
+ @TempDir java.nio.file.Path temp;
+ @Test void rejectsRenamedDocxByMagicBytes(){var jobs=mock(JobService.class);var repo=mock(ResumeRepository.class);var service=new ResumeService(jobs,repo,new FileStorageService(temp.toString()),new PdfTextExtractor(),10,5);var response=service.upload("665f1a2b3c4d5e6f70819201","user",new MockMultipartFile[]{new MockMultipartFile("files","resume.pdf","application/pdf","PK docx".getBytes())});assertThat(response.uploaded()).isEmpty();assertThat(response.rejected()).singleElement().extracting(x->x.reason()).isEqualTo("UNSUPPORTED_FILE_TYPE");verifyNoInteractions(repo);}
+ @Test void traversalFilenameNeverBecomesPath() throws Exception {var jobs=mock(JobService.class);var repo=mock(ResumeRepository.class);when(repo.save(any())).thenAnswer(i->i.getArgument(0));byte[] pdf="%PDF-corrupt".getBytes();var service=new ResumeService(jobs,repo,new FileStorageService(temp.toString()),new PdfTextExtractor(),10,5);var response=service.upload("665f1a2b3c4d5e6f70819201","user",new MockMultipartFile[]{new MockMultipartFile("files","../../etc/passwd.pdf","application/pdf",pdf)});assertThat(response.uploaded()).hasSize(1);assertThat(Files.walk(temp).filter(Files::isRegularFile).toList()).singleElement().satisfies(p->assertThat(p.normalize()).startsWith(temp.normalize()));verify(repo).save(argThat(r->r.originalFilename().equals("../../etc/passwd.pdf")&&!r.storagePath().contains("..")));}
+}

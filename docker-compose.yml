@@ -1,0 +1,79 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    env_file: .env
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\")' -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  ai-service:
+    build: ./ai-service
+    env_file: .env
+    # Required on Linux; Docker Desktop resolves this hostname natively.
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  mongodb-dev:
+    image: alpine/socat:1.8.0.3
+    profiles: [dev]
+    env_file: .env
+    command: ["tcp-listen:27017,fork,reuseaddr", "tcp-connect:mongodb:27017"]
+    ports: ["27017:27017"]
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  ai-service-dev:
+    image: alpine/socat:1.8.0.3
+    profiles: [dev]
+    env_file: .env
+    command: ["tcp-listen:8000,fork,reuseaddr", "tcp-connect:ai-service:8000"]
+    ports: ["8000:8000"]
+    depends_on:
+      ai-service:
+        condition: service_healthy
+
+  api-service:
+    build: ./api-service
+    env_file: .env
+    ports: ["8080:8080"]
+    volumes:
+      - ./uploads:/data/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    env_file: .env
+    command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]
+    volumes:
+      - ./web:/app
+      - web-node-modules:/app/node_modules
+    ports: ["5173:5173"]
+    depends_on:
+      api-service:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+  web-node-modules:
